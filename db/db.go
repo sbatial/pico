@@ -20,10 +20,12 @@ type PublicKey struct {
 }
 
 type User struct {
-	ID        string     `json:"id"`
-	Name      string     `json:"name"`
-	PublicKey *PublicKey `json:"public_key,omitempty"`
-	CreatedAt *time.Time `json:"created_at"`
+	ID               string     `json:"id"`
+	Name             string     `json:"name"`
+	PublicKey        *PublicKey `json:"public_key,omitempty"`
+	CreatedAt        *time.Time `json:"created_at"`
+	StripeCustomerID string     `json:"stripe_customer_id"`
+	ProExpiresAt     *time.Time `json:"pro_expires_at"`
 }
 
 type PostData struct {
@@ -184,6 +186,7 @@ type DB interface {
 	FindUser(userID string) (*User, error)
 	ValidateName(name string) (bool, error)
 	SetUserName(userID string, name string) error
+	UpdateProMembership(userID string, customerID string, expiresAt *time.Time) error
 
 	FindUserForToken(token string) (*User, error)
 	FindTokensForUser(userID string) ([]*Token, error)

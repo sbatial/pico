@@ -137,13 +137,13 @@ var (
 const (
 	sqlSelectPublicKey         = `SELECT id, user_id, public_key, created_at FROM public_keys WHERE public_key = $1`
 	sqlSelectPublicKeys        = `SELECT id, user_id, public_key, created_at FROM public_keys WHERE user_id = $1`
-	sqlSelectUser              = `SELECT id, name, created_at FROM app_users WHERE id = $1`
-	sqlSelectUserForName       = `SELECT id, name, created_at FROM app_users WHERE name = $1`
-	sqlSelectUserForNameAndKey = `SELECT app_users.id, app_users.name, app_users.created_at, public_keys.id as pk_id, public_keys.public_key, public_keys.created_at as pk_created_at FROM app_users LEFT JOIN public_keys ON public_keys.user_id = app_users.id WHERE app_users.name = $1 AND public_keys.public_key = $2`
+	sqlSelectUser              = `SELECT id, name, created_at, stripe_customer_id, pro_expires_at FROM app_users WHERE id = $1`
+	sqlSelectUserForName       = `SELECT id, name, created_at, stripe_customer_id, pro_expires_at FROM app_users WHERE name = $1`
+	sqlSelectUserForNameAndKey = `SELECT app_users.id, app_users.name, app_users.created_at, app_users.stripe_customer_id, app_users.pro_expires_at, public_keys.id as pk_id, public_keys.public_key, public_keys.created_at as pk_created_at FROM app_users LEFT JOIN public_keys ON public_keys.user_id = app_users.id WHERE app_users.name = $1 AND public_keys.public_key = $2`
 	sqlSelectUsers             = `SELECT id, name, created_at FROM app_users ORDER BY name ASC`
 
 	sqlSelectUserForToken = `
-	SELECT app_users.id, app_users.name, app_users.created_at
+	SELECT app_users.id, app_users.name, app_users.created_at, app_users.stripe_customer_id, app_users.pro_expires_at
 	FROM app_users
 	LEFT JOIN tokens ON tokens.user_id = app_users.id
 	WHERE tokens.token = $1 AND tokens.expires_at > NOW()`
@@ -243,8 +243,9 @@ const (
 	SET slug = $1, title = $2, text = $3, description = $4, updated_at = $5, publish_at = $6,
 		file_size = $7, shasum = $8, data = $9, hidden = $11
 	WHERE id = $10`
-	sqlUpdateUserName = `UPDATE app_users SET name = $1 WHERE id = $2`
-	sqlIncrementViews = `UPDATE posts SET views = views + 1 WHERE id = $1 RETURNING views`
+	sqlUpdateUserName      = `UPDATE app_users SET name = $1 WHERE id = $2`
+	sqlUpdateProMembership = `UPDATE app_users SET stripe_customer_id=$1, pro_expires_at=$2 WHERE id = $3`
+	sqlIncrementViews      = `UPDATE posts SET views = views + 1 WHERE id = $1 RETURNING views`
 
 	sqlRemoveAliasesByPost = `DELETE FROM post_aliases WHERE post_id = $1`
 	sqlRemoveTagsByPost    = `DELETE FROM post_tags WHERE post_id = $1`
@@ -537,7 +538,7 @@ func (me *PsqlDB) FindUser(userID string) (*db.User, error) {
 	user := &db.User{}
 	var un sql.NullString
 	r := me.Db.QueryRow(sqlSelectUser, userID)
-	err := r.Scan(&user.ID, &un, &user.CreatedAt)
+	err := r.Scan(&user.ID, &un, &user.CreatedAt, &user.StripeCustomerID, &user.StripeCustomerID)
 	if err != nil {
 		return nil, err
 	}
@@ -566,7 +567,7 @@ func (me *PsqlDB) ValidateName(name string) (bool, error) {
 func (me *PsqlDB) FindUserForName(name string) (*db.User, error) {
 	user := &db.User{}
 	r := me.Db.QueryRow(sqlSelectUserForName, strings.ToLower(name))
-	err := r.Scan(&user.ID, &user.Name, &user.CreatedAt)
+	err := r.Scan(&user.ID, &user.Name, &user.CreatedAt, &user.StripeCustomerID, &user.ProExpiresAt)
 	if err != nil {
 		return nil, err
 	}
@@ -578,7 +579,7 @@ func (me *PsqlDB) FindUserForNameAndKey(name string, key string) (*db.User, erro
 	pk := &db.PublicKey{}
 
 	r := me.Db.QueryRow(sqlSelectUserForNameAndKey, strings.ToLower(name), key)
-	err := r.Scan(&user.ID, &user.Name, &user.CreatedAt, &pk.ID, &pk.Key, &pk.CreatedAt)
+	err := r.Scan(&user.ID, &user.Name, &user.CreatedAt, &user.StripeCustomerID, &user.ProExpiresAt, &pk.ID, &pk.Key, &pk.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -591,7 +592,7 @@ func (me *PsqlDB) FindUserForToken(token string) (*db.User, error) {
 	user := &db.User{}
 
 	r := me.Db.QueryRow(sqlSelectUserForToken, token)
-	err := r.Scan(&user.ID, &user.Name, &user.CreatedAt)
+	err := r.Scan(&user.ID, &user.Name, &user.CreatedAt, &user.StripeCustomerID, &user.ProExpiresAt)
 	if err != nil {
 		return nil, err
 	}
@@ -607,6 +608,11 @@ func (me *PsqlDB) SetUserName(userID string, name string) error {
 	}
 
 	_, err = me.Db.Exec(sqlUpdateUserName, lowerName, userID)
+	return err
+}
+
+func (me *PsqlDB) UpdateProMembership(userID string, customerID string, expiresAt *time.Time) error {
+	_, err := me.Db.Exec(sqlUpdateProMembership, userID, customerID, expiresAt)
 	return err
 }
 

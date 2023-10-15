@@ -15,6 +15,7 @@ css:
 	cp ./smol.css imgs/public/main.css
 	cp ./smol.css feeds/public/main.css
 	cp ./smol.css pgs/public/main.css
+	cp ./smol.css pro/public/main.css
 
 	cp ./syntax.css pastes/public/syntax.css
 	cp ./syntax.css prose/public/syntax.css
@@ -63,6 +64,10 @@ build-auth:
 	go build -o "build/auth" "./cmd/auth/web"
 .PHONY: build-auth
 
+build-pro:
+	go build -o "build/pro-web" "./cmd/pro/web"
+.PHONY: build-pro
+
 build-%:
 	go build -o "build/$*-web" "./cmd/$*/web"
 	go build -o "build/$*-ssh" "./cmd/$*/ssh"
@@ -86,6 +91,10 @@ pgs-deploy: pgs-static pgs-site
 	scp -R ./public/* hey@pgs.sh:/pgs-local
 	ssh hey@pgs.sh link pgs-prod pgs-local --write
 .PHONY: pgs-site-deploy
+
+pro-deploy:
+	scp -R ./pro/public/* hey@pgs.sh:/pro
+.PHONY: pro-deploy
 
 fmt:
 	go fmt ./...
@@ -118,10 +127,11 @@ migrate:
 	$(DOCKER_CMD) exec -i $(DB_CONTAINER) psql -U $(PGUSER) -d $(PGDATABASE) < ./sql/migrations/20230326_add_feed_items.sql
 	$(DOCKER_CMD) exec -i $(DB_CONTAINER) psql -U $(PGUSER) -d $(PGDATABASE) < ./sql/migrations/20230707_add_projects_table.sql
 	$(DOCKER_CMD) exec -i $(DB_CONTAINER) psql -U $(PGUSER) -d $(PGDATABASE) < ./sql/migrations/20230921_add_tokens_table.sql
+	$(DOCKER_CMD) exec -i $(DB_CONTAINER) psql -U $(PGUSER) -d $(PGDATABASE) < ./sql/migrations/20231015_alter_app_users_add_pro.sql
 .PHONY: migrate
 
 latest:
-	$(DOCKER_CMD) exec -i $(DB_CONTAINER) psql -U $(PGUSER) -d $(PGDATABASE) < ./sql/migrations/20230921_add_tokens_table.sql
+	$(DOCKER_CMD) exec -i $(DB_CONTAINER) psql -U $(PGUSER) -d $(PGDATABASE) < ./sql/migrations/20231015_alter_app_users_add_pro.sql
 .PHONY: latest
 
 psql:

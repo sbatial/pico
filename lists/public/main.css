@@ -341,8 +341,16 @@ figure {
   margin-right: 1rem;
 }
 
+.p-0 {
+  padding: 0;
+}
+
 .justify-between {
   justify-content: space-between;
+}
+
+.justify-center {
+  justify-content: center;
 }
 
 .flex-1 {
@@ -358,6 +366,13 @@ figure {
 }
 
 .layout-aside img {
+  border-radius: 5px;
+}
+
+.box {
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+  border: 1px solid var(--grey);
   border-radius: 5px;
 }
 

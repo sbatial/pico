@@ -27,6 +27,7 @@ require (
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/sftp v1.13.5
 	github.com/sendgrid/sendgrid-go v3.12.0+incompatible
+	github.com/stripe/stripe-go/v75 v75.10.0
 	github.com/yuin/goldmark v1.5.3
 	github.com/yuin/goldmark-highlighting v0.0.0-20220208100518-594be1970594
 	github.com/yuin/goldmark-meta v1.1.0

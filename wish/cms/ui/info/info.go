@@ -1,6 +1,8 @@
 package info
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/picosh/pico/db"
 	"github.com/picosh/pico/wish/cms/config"
@@ -76,8 +78,17 @@ func (m Model) bioView() string {
 		username = m.styles.Subtle.Render("(none set)")
 	}
 
+	pro := "NO"
+	if m.User.StripeCustomerID != "" {
+		pro = "YES"
+		if m.User.ProExpiresAt != nil {
+			pro = fmt.Sprintf("%s (%s)", pro, m.User.ProExpiresAt.Format("02 Jan 2006"))
+		}
+	}
+
 	return common.KeyValueView(
 		"Username", username,
+		"Pro", pro,
 		"URL", m.urls.BlogURL(username),
 		"Public key", m.User.PublicKey.Key,
 		"Joined", m.User.CreatedAt.Format("02 Jan 2006"),
