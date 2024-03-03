@@ -165,21 +165,21 @@ type FeedItem struct {
 }
 
 type Token struct {
-	ID        string
-	UserID    string
-	Name      string
-	CreatedAt *time.Time
-	ExpiresAt *time.Time
+	ID        string `json:"id"`
+	UserID    string `json:"user_id"`
+	Name      string `json:"name"`
+	CreatedAt *time.Time `json:"created_at"`
+	ExpiresAt *time.Time `json:"expires_at"`
 }
 
 type FeatureFlag struct {
-	ID               string
-	UserID           string
-	PaymentHistoryID string
-	Name             string
-	CreatedAt        *time.Time
-	ExpiresAt        *time.Time
-	Data             FeatureFlagData
+	ID               string `json:"id"`
+	UserID           string `json:"user_id"`
+	PaymentHistoryID string `json:"payment_history_id"`
+	Name             string `json:"name"`
+	CreatedAt        *time.Time `json:"created_at"`
+	ExpiresAt        *time.Time `json:"expires_at"`
+	Data             FeatureFlagData `json:"data"`
 }
 
 func NewFeatureFlag(userID, name string, storageMax uint64, fileMax int64) *FeatureFlag {
