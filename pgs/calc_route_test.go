@@ -353,6 +353,26 @@ func TestCalcRoutes(t *testing.T) {
 				{Filepath: "public/404.html", Status: 404},
 			},
 		},
+		{
+			Name: "redirect-to-another-pgs-site",
+			Actual: calcRoutes(
+				"public",
+				"/my-site/index.html",
+				[]*RedirectRule{
+					{
+						From:   "/my-site/*",
+						To:     "https://my-other-site.pgs.sh/:splat",
+						Status: 200,
+					},
+				},
+			),
+			Expected: []*HttpReply{
+				{Filepath: "public/my-site/index.html", Status: 200},
+				{Filepath: "https://my-other-site.pgs.sh/index.html", Status: 200},
+				{Filepath: "/my-site/index.html/", Status: 301},
+				{Filepath: "public/404.html", Status: 404},
+			},
+		},
 	}
 
 	for _, fixture := range fixtures {

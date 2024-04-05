@@ -73,6 +73,15 @@ func checkIsRedirect(status int) bool {
 	return status >= 300 && status <= 399
 }
 
+func genRedirectRoute(actual string, from *regexp.Regexp, to string) string {
+	next := to
+	match := from.FindStringSubmatch(actual)
+	for _, x := range match {
+		fmt.Println(x)
+	}
+	return next
+}
+
 func calcRoutes(projectName, fp string, userRedirects []*RedirectRule) []*HttpReply {
 	rts := []*HttpReply{}
 	// add route as-is without expansion
@@ -94,18 +103,27 @@ func calcRoutes(projectName, fp string, userRedirects []*RedirectRule) []*HttpRe
 
 		from := redirect.From
 		if !strings.HasSuffix(redirect.From, "*") {
-			from = strings.TrimSuffix(redirect.From, "/") + "/?"
+			from = strings.TrimSuffix(redirect.From, "/") + "(.+)/?$"
 		}
 		rr := regexp.MustCompile(from)
 		match := rr.FindStringSubmatch(fp)
 		if len(match) > 0 {
 			isRedirect := checkIsRedirect(redirect.Status)
 			if !isRedirect {
-				// wipe redirect rules to prevent infinite loops
-				// as such we only support a single hop for user defined redirects
-				redirectRoutes := calcRoutes(projectName, redirect.To, []*RedirectRule{})
-				rts = append(rts, redirectRoutes...)
-				return rts
+				if hasProtocol(redirect.To) {
+					route := genRedirectRoute(fp, rr, redirect.To)
+					rts = append(rts, &HttpReply{
+						Filepath: route,
+						Status: redirect.Status,
+						Query: redirect.Query,
+					})
+				} else {
+					// wipe redirect rules to prevent infinite loops
+					// as such we only support a single hop for user defined redirects
+					redirectRoutes := calcRoutes(projectName, redirect.To, []*RedirectRule{})
+					rts = append(rts, redirectRoutes...)
+					return rts
+				}
 			}
 
 			userReply := []*HttpReply{}
