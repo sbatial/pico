@@ -73,10 +73,21 @@ func checkIsRedirect(status int) bool {
 	return status >= 300 && status <= 399
 }
 
-func genRedirectRoute(actual string, from *regexp.Regexp, to string) string {
+func genRedirectRoute(actual string, fromStr string, from *regexp.Regexp, to string) string {
+	placeholderRe := regexp.MustCompile(`/?(:[^/]+)/?`)
 	next := to
 	match := from.FindStringSubmatch(actual)
-	for _, x := range match {
+	for i, x := range match {
+		if i == 0 {
+			continue
+		}
+		next = strings.Replace(to, ":splat", x, 1)
+	}
+	placeholder := placeholderRe.FindStringSubmatch(fromStr)
+	for i, x := range placeholder {
+		if i == 0 {
+			continue
+		}
 		fmt.Println(x)
 	}
 	return next
@@ -102,22 +113,19 @@ func calcRoutes(projectName, fp string, userRedirects []*RedirectRule) []*HttpRe
 		}
 
 		from := redirect.From
-		if !strings.HasSuffix(redirect.From, "*") {
-			from = strings.TrimSuffix(redirect.From, "/") + "(.+)/?$"
+		if strings.HasSuffix(redirect.From, "*") {
+			// hack: replace suffix `*` with a capture group
+			from = strings.TrimSuffix(redirect.From, "*") + "(.+)"
+		} else {
+			// hack: make suffix `/` optional when matching
+			from = strings.TrimSuffix(redirect.From, "/") + "/?"
 		}
 		rr := regexp.MustCompile(from)
 		match := rr.FindStringSubmatch(fp)
 		if len(match) > 0 {
 			isRedirect := checkIsRedirect(redirect.Status)
 			if !isRedirect {
-				if hasProtocol(redirect.To) {
-					route := genRedirectRoute(fp, rr, redirect.To)
-					rts = append(rts, &HttpReply{
-						Filepath: route,
-						Status: redirect.Status,
-						Query: redirect.Query,
-					})
-				} else {
+				if !hasProtocol(redirect.To) {
 					// wipe redirect rules to prevent infinite loops
 					// as such we only support a single hop for user defined redirects
 					redirectRoutes := calcRoutes(projectName, redirect.To, []*RedirectRule{})
@@ -126,11 +134,12 @@ func calcRoutes(projectName, fp string, userRedirects []*RedirectRule) []*HttpRe
 				}
 			}
 
+			route := genRedirectRoute(fp, from, rr, redirect.To)
 			userReply := []*HttpReply{}
 			var rule *HttpReply
 			if redirect.To != "" {
 				rule = &HttpReply{
-					Filepath: redirect.To,
+					Filepath: route,
 					Status:   redirect.Status,
 					Query:    redirect.Query,
 				}

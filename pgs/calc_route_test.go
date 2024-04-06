@@ -369,7 +369,26 @@ func TestCalcRoutes(t *testing.T) {
 			Expected: []*HttpReply{
 				{Filepath: "public/my-site/index.html", Status: 200},
 				{Filepath: "https://my-other-site.pgs.sh/index.html", Status: 200},
-				{Filepath: "/my-site/index.html/", Status: 301},
+			},
+		},
+		{
+			Name: "redirect-placeholders",
+			Actual: calcRoutes(
+				"public",
+				"/news/02/12/2004/my-story",
+				[]*RedirectRule{
+					{
+						From:   "/news/:month/:date/:year/:slug",
+						To:     "/blog/:year/:month/:date/:slug",
+						Status: 200,
+					},
+				},
+			),
+			Expected: []*HttpReply{
+				{Filepath: "public/news/02/12/2004/my-story", Status: 200},
+				{Filepath: "public/news/02/12/2004/my-story.html", Status: 200},
+				{Filepath: "public/blog/2004/02/12/my-story", Status: 200},
+				{Filepath: "/news/02/12/2004/my-story/", Status: 301},
 				{Filepath: "public/404.html", Status: 404},
 			},
 		},
