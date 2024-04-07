@@ -73,24 +73,44 @@ func checkIsRedirect(status int) bool {
 	return status >= 300 && status <= 399
 }
 
-func genRedirectRoute(actual string, fromStr string, from *regexp.Regexp, to string) string {
-	placeholderRe := regexp.MustCompile(`/?(:[^/]+)/?`)
-	next := to
-	match := from.FindStringSubmatch(actual)
-	for i, x := range match {
-		if i == 0 {
-			continue
+func correlatePlaceholder(orig, pattern string) string {
+	origList := strings.Split(orig, "/")
+	patternList := strings.Split(pattern, "/")
+	for idx, item := range patternList {
+		if strings.HasPrefix(item, ":") {
+			origList[idx] = item
 		}
-		next = strings.Replace(to, ":splat", x, 1)
 	}
-	placeholder := placeholderRe.FindStringSubmatch(fromStr)
-	for i, x := range placeholder {
-		if i == 0 {
-			continue
+	finList := []string{}
+	if strings.HasPrefix(orig, "/") {
+		finList = append(finList, "/")
+	}
+	finList = append(finList, origList...)
+	return filepath.Join(finList...)
+}
+
+func genRedirectRoute(actual string, fromStr string, to string) string {
+	actualList := strings.Split(actual, "/")
+	fromList := strings.Split(fromStr, "/")
+	toList := strings.Split(to, "/")
+
+	mapper := map[string]string{}
+	for idx, item := range fromList {
+		if strings.HasPrefix(item, ":") {
+			mapper[item] = actualList[idx]
 		}
-		fmt.Println(x)
 	}
-	return next
+
+	fin := []string{"/"}
+	for _, item := range toList {
+		if mapper[item] != "" {
+			fin = append(fin, mapper[item])
+		} else {
+			fin = append(fin, item)
+		}
+	}
+
+	return filepath.Join(fin...)
 }
 
 func calcRoutes(projectName, fp string, userRedirects []*RedirectRule) []*HttpReply {
@@ -107,34 +127,31 @@ func calcRoutes(projectName, fp string, userRedirects []*RedirectRule) []*HttpRe
 
 	// user routes
 	for _, redirect := range userRedirects {
-		// this doesn't make sense and it forbidden
+		// this doesn't make sense so it is forbidden
 		if redirect.From == redirect.To {
 			continue
 		}
 
-		from := redirect.From
-		if strings.HasSuffix(redirect.From, "*") {
-			// hack: replace suffix `*` with a capture group
-			from = strings.TrimSuffix(redirect.From, "*") + "(.+)"
-		} else {
-			// hack: make suffix `/` optional when matching
-			from = strings.TrimSuffix(redirect.From, "/") + "/?"
-		}
-		rr := regexp.MustCompile(from)
+		// hack: make suffix `/` optional when matching
+		from := filepath.Clean(redirect.From)
+		fromMatcher := correlatePlaceholder(fp, from)
+		rr := regexp.MustCompile(fromMatcher)
 		match := rr.FindStringSubmatch(fp)
 		if len(match) > 0 {
 			isRedirect := checkIsRedirect(redirect.Status)
 			if !isRedirect {
 				if !hasProtocol(redirect.To) {
+					route := genRedirectRoute(fp, from, redirect.To)
+					fmt.Println(route)
 					// wipe redirect rules to prevent infinite loops
 					// as such we only support a single hop for user defined redirects
-					redirectRoutes := calcRoutes(projectName, redirect.To, []*RedirectRule{})
+					redirectRoutes := calcRoutes(projectName, route, []*RedirectRule{})
 					rts = append(rts, redirectRoutes...)
 					return rts
 				}
 			}
 
-			route := genRedirectRoute(fp, from, rr, redirect.To)
+			route := genRedirectRoute(fp, from, redirect.To)
 			userReply := []*HttpReply{}
 			var rule *HttpReply
 			if redirect.To != "" {
